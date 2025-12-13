@@ -1,5 +1,5 @@
+use sqlx::{Executor, Postgres, Result};
 use uuid::Uuid;
-use sqlx::{Result, Executor, Postgres};
 
 pub struct User {
     pub id: Uuid,
@@ -26,10 +26,7 @@ pub async fn create<'e, E: Executor<'e, Database = Postgres>>(
     Ok(rec.id)
 }
 
-pub async fn delete<'e, E: Executor<'e, Database = Postgres>>(
-    e: E,
-    id: &Uuid
-) -> Result<()> {
+pub async fn delete<'e, E: Executor<'e, Database = Postgres>>(e: E, id: &Uuid) -> Result<()> {
     sqlx::query!(
         r#"
         DELETE FROM users WHERE id = $1;
@@ -43,7 +40,7 @@ pub async fn delete<'e, E: Executor<'e, Database = Postgres>>(
 
 pub async fn find_by_id<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
-    id: &Uuid
+    id: &Uuid,
 ) -> Result<Option<User>> {
     sqlx::query_as!(
         User,
@@ -60,7 +57,7 @@ pub async fn find_by_id<'e, E: Executor<'e, Database = Postgres>>(
 
 pub async fn find_by_login<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
-    login: &str
+    login: &str,
 ) -> Result<Option<User>> {
     sqlx::query_as!(
         User,
@@ -77,7 +74,7 @@ pub async fn find_by_login<'e, E: Executor<'e, Database = Postgres>>(
 
 pub async fn login_exists<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
-    login: &str
+    login: &str,
 ) -> Result<bool> {
     let exists = sqlx::query_scalar!(
         r#"

@@ -1,6 +1,6 @@
-use sqlx::{Result, Executor, Postgres};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use sqlx::{Executor, Postgres, Result};
+use uuid::Uuid;
 
 pub struct File {
     pub id: Uuid,
@@ -16,7 +16,7 @@ pub async fn create<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     name: &str,
     path: Option<&str>,
-    owner_id: &Uuid
+    owner_id: &Uuid,
 ) -> Result<Uuid> {
     let rec = sqlx::query!(
         r#"
@@ -119,7 +119,7 @@ pub async fn find_paged<'e, E: Executor<'e, Database = Postgres>>(
     owner_id: &Uuid,
     order_by: &str,
     limit: i64,
-    offset: i64
+    offset: i64,
 ) -> Result<Vec<File>> {
     let pattern = format!("{like}%");
     sqlx::query_as!(

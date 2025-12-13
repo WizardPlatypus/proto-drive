@@ -1,4 +1,4 @@
-use sqlx::{Result, Executor, Postgres};
+use sqlx::{Executor, Postgres, Result};
 use uuid::Uuid;
 
 pub struct Config {
@@ -12,10 +12,7 @@ pub struct Config {
     pub filtered: bool,
 }
 
-pub async fn init<'e, E: Executor<'e, Database = Postgres>>(
-    e: E,
-    user_id: &Uuid
-) -> Result<()> {
+pub async fn init<'e, E: Executor<'e, Database = Postgres>>(e: E, user_id: &Uuid) -> Result<()> {
     sqlx::query!(
         r#"
         INSERT INTO configs (user_id)
@@ -28,10 +25,7 @@ pub async fn init<'e, E: Executor<'e, Database = Postgres>>(
     Ok(())
 }
 
-pub async fn get<'e, E: Executor<'e, Database = Postgres>>(
-    e: E,
-    user_id: &Uuid
-) -> Result<Config> {
+pub async fn get<'e, E: Executor<'e, Database = Postgres>>(e: E, user_id: &Uuid) -> Result<Config> {
     sqlx::query_as!(
         Config,
         r#"
@@ -45,29 +39,29 @@ pub async fn get<'e, E: Executor<'e, Database = Postgres>>(
     .await
 }
 
-    pub async fn update_ascending<'e, E: Executor<'e, Database = Postgres>>(
-        e: E,
-        user_id: &Uuid,
-        value: bool
-    ) -> Result<()> {
-        sqlx::query!(
-            r#"
+pub async fn update_ascending<'e, E: Executor<'e, Database = Postgres>>(
+    e: E,
+    user_id: &Uuid,
+    value: bool,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
             UPDATE configs
             SET ascending = $2
             WHERE user_id = $1;
             "#,
-            user_id,
-            value
-        )
-        .execute(e)
-        .await?;
-        Ok(())
-    }
+        user_id,
+        value
+    )
+    .execute(e)
+    .await?;
+    Ok(())
+}
 
 pub async fn update_created_at<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     user_id: &Uuid,
-    value: bool
+    value: bool,
 ) -> Result<()> {
     sqlx::query!(
         r#"
@@ -86,7 +80,7 @@ pub async fn update_created_at<'e, E: Executor<'e, Database = Postgres>>(
 pub async fn update_edited_at<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     user_id: &Uuid,
-    value: bool
+    value: bool,
 ) -> Result<()> {
     sqlx::query!(
         r#"
@@ -105,7 +99,7 @@ pub async fn update_edited_at<'e, E: Executor<'e, Database = Postgres>>(
 pub async fn update_owned_by<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     user_id: &Uuid,
-    value: bool
+    value: bool,
 ) -> Result<()> {
     sqlx::query!(
         r#"
@@ -124,7 +118,7 @@ pub async fn update_owned_by<'e, E: Executor<'e, Database = Postgres>>(
 pub async fn update_edited_by<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     user_id: &Uuid,
-    value: bool
+    value: bool,
 ) -> Result<()> {
     sqlx::query!(
         r#"
@@ -143,7 +137,7 @@ pub async fn update_edited_by<'e, E: Executor<'e, Database = Postgres>>(
 pub async fn update_filtered<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     user_id: &Uuid,
-    value: bool
+    value: bool,
 ) -> Result<()> {
     sqlx::query!(
         r#"
@@ -162,7 +156,7 @@ pub async fn update_filtered<'e, E: Executor<'e, Database = Postgres>>(
 pub async fn update_sorted<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     user_id: &Uuid,
-    value: Option<String>
+    value: Option<String>,
 ) -> Result<()> {
     sqlx::query!(
         r#"
