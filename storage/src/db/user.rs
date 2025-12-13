@@ -9,22 +9,21 @@ pub struct User {
 
 pub async fn create<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
-    id: &Uuid,
     login: &str,
     phc: &str,
-) -> Result<()> {
-    sqlx::query!(
+) -> Result<Uuid> {
+    let rec = sqlx::query!(
         r#"
-        INSERT INTO users (id, login, phc)
-        VALUES ($1, $2, $3);
+        INSERT INTO users (login, phc)
+        VALUES ($1, $2)
+        RETURNING id;
         "#,
-        id,
         login,
         phc
     )
-    .execute(e)
+    .fetch_one(e)
     .await?;
-    Ok(())
+    Ok(rec.id)
 }
 
 pub async fn delete<'e, E: Executor<'e, Database = Postgres>>(

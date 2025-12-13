@@ -14,24 +14,23 @@ pub struct File {
 
 pub async fn create<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
-    file_id: &Uuid,
     name: &str,
     path: Option<&str>,
     owner_id: &Uuid
-) -> Result<()> {
-    sqlx::query!(
+) -> Result<Uuid> {
+    let rec = sqlx::query!(
         r#"
-        INSERT INTO files (id, name, path, owned_by)
-        VALUES ($1, $2, $3, $4);
+        INSERT INTO files (name, path, owned_by)
+        VALUES ($1, $2, $3)
+        RETURNING id
         "#,
-        file_id,
         name,
         path,
         owner_id
     )
-    .execute(e)
+    .fetch_one(e)
     .await?;
-    Ok(())
+    Ok(rec.id)
 }
 
 pub async fn delete<'e, E: Executor<'e, Database = Postgres>>(
