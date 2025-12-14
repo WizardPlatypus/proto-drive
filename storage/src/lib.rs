@@ -11,6 +11,6 @@ pub fn app(shared: Shared) -> Router {
         .route("/auth/register", post(api::register))
         .route("/auth/login", post(api::login))
         .route("/upload", post(api::upload_file))
-        .route("/download/:file_id", post(api::download_file))
+        .route("/download/{file_id}", post(api::download_file))
         .with_state(shared)
 }

@@ -68,6 +68,7 @@ pub async fn login(
 pub struct Shared {
     pub pool: PgPool,
     pub jwt_secret: Arc<[u8]>,
+    pub root: String
 }
 
 impl Shared {
@@ -78,13 +79,14 @@ impl Shared {
                 .map_err(|e| e.to_string())?
                 .as_bytes(),
         );
+        let root = std::env::var("ROOT").map_err(|e| e.to_string())?;
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(5)
             .acquire_timeout(std::time::Duration::from_secs(5))
             .connect(&db_connection_string)
             .await
             .map_err(|e| e.to_string())?;
-        Ok(Shared { pool, jwt_secret })
+        Ok(Shared { pool, jwt_secret, root })
     }
 }
 
@@ -145,10 +147,10 @@ pub async fn upload_file(
     State(shared): State<Shared>,
     user: auth::User,
     mut multipart: Multipart,
-) -> Result<(), (StatusCode, String)> {
+) -> Result<StatusCode, (StatusCode, String)> {
     let mut destination = None;
     let mut file = None;
-
+    let root = std::path::Path::new(&shared.root);
     while let Some(mut field) = multipart
         .next_field()
         .await
@@ -156,33 +158,47 @@ pub async fn upload_file(
     {
         match field.name() {
             Some("file") if field.file_name().is_some() => {
+                tracing::info!("Matched a \"file\" field");
                 let name = sanitize_filename::sanitize(field.file_name().unwrap());
                 if name.is_empty() {
+                    tracing::error!(name: "filename_empty", "File name contained no characters once sanitized");
                     return Err((
                         StatusCode::BAD_REQUEST,
                         String::from("File name contained no characters once sanitized"),
                     ));
                 }
+                tracing::debug!("Sanitized name: \"{}\"", &name);
                 let file_id = db::file::create(&shared.pool, &name, None, &user.id)
                     .await
                     .map_err(internal_server_error)?;
-                let temp_path = format!("/temp/{}/{}", &user.id, &file_id);
-                db::file::r#move(&shared.pool, &file_id, &temp_path)
+                tracing::trace!("Acquired file UUID");
+                let temp_path = root.join("temp").join(&user.id.to_string()).join(&file_id.to_string());
+                // let temp_path = format!("{}/temp/{}/{}", &shared.root, &user.id, &file_id);
+                tracing::debug!("Temp path: \"{}\"", &temp_path.to_string_lossy());
+                db::file::r#move(&shared.pool, &file_id, &temp_path.to_string_lossy())
                     .await
                     .map_err(internal_server_error)?;
+                tracing::trace!("Updated DB path");
+                std::fs::create_dir_all(&temp_path.parent().unwrap()).map_err(internal_server_error)?;
+                tracing::trace!("Created intermediate directores");
                 let mut temp = std::fs::File::create(&temp_path).map_err(internal_server_error)?;
+                tracing::trace!("Opened the temp file");
                 while let Some(chunk) = field.chunk().await.map_err(internal_server_error)? {
                     temp.write_all(&chunk).map_err(internal_server_error)?;
                 }
                 temp.sync_all().map_err(internal_server_error)?;
+                tracing::trace!("Processed all chunks");
                 file = Some((name, file_id, temp_path));
             }
             Some("destination") => {
+                tracing::trace!("Matched a \"destination\" field");
                 destination = Some(sanitize_destination(
                     &field.text().await.map_err(internal_server_error)?,
                 ));
             }
-            _ => {}
+            _ => {
+                tracing::trace!("Skipped a field");
+            }
         }
     }
     let destination = destination.ok_or((
@@ -194,17 +210,25 @@ pub async fn upload_file(
         String::from("Multipart missing \"file\" field."),
     ))?;
     let new_name = destination + &name;
-    let new_path = format!("/storage/{}/{}", &user.id, &file_id);
-    db::file::r#move(&shared.pool, &file_id, &new_path)
+    tracing::debug!("New name: {}", &new_name);
+    let new_path = root.join("storage").join(&user.id.to_string()).join(&file_id.to_string());
+    // let new_path = format!("{}/storage/{}/{}", &shared.root, &user.id, &file_id);
+    tracing::debug!("New path: {}", &new_path.to_string_lossy());
+    db::file::r#move(&shared.pool, &file_id, &new_path.to_string_lossy())
         .await
         .map_err(internal_server_error)?;
+    tracing::info!("Moved DB file");
+    std::fs::create_dir_all(&new_path.parent().unwrap()).map_err(internal_server_error)?;
+    tracing::trace!("Created intermediate directores");
     tokio::fs::rename(temp_path, &new_path)
         .await
         .map_err(internal_server_error)?;
+    tracing::info!("Moved physical file");
     db::file::rename(&shared.pool, &file_id, &new_name)
         .await
         .map_err(internal_server_error)?;
-    Ok(())
+    tracing::info!("Renamed DB file");
+    Ok(StatusCode::CREATED)
 }
 
 pub async fn download_file(
