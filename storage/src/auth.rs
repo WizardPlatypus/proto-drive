@@ -21,7 +21,7 @@ pub fn verify_password(password: &str, phc: &str) -> password_hash::Result<bool>
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum AuthError {
+pub enum Error {
     #[error("Invalid credentials")]
     InvalidCredentials,
     #[error("Password hashing error")]
@@ -30,23 +30,24 @@ pub enum AuthError {
     Database(#[from] sqlx::Error),
 }
 
-pub async fn register_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, AuthError> {
-    let phc = hash_password(password).map_err(AuthError::PasswordHash)?;
+pub async fn register_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, Error> {
+    let phc = hash_password(password).map_err(Error::PasswordHash)?;
     let mut tx = pool.begin().await?;
-    let id = crate::db::user::create(&mut *tx, login, &phc).await?;
+    let user_id = crate::db::user::create(&mut *tx, login, &phc).await?;
+    crate::db::config::init(&mut *tx, &user_id).await?;
     tx.commit().await?;
-    Ok(id)
+    Ok(user_id)
 }
 
-pub async fn login_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, AuthError> {
+pub async fn login_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, Error> {
     let user = crate::db::user::find_by_login(pool, login)
         .await?
-        .ok_or(AuthError::InvalidCredentials)?;
-    let ok = verify_password(password, &user.phc).map_err(AuthError::PasswordHash)?;
+        .ok_or(Error::InvalidCredentials)?;
+    let ok = verify_password(password, &user.phc).map_err(Error::PasswordHash)?;
     if ok {
         Ok(user.id)
     } else {
-        Err(AuthError::InvalidCredentials)
+        Err(Error::InvalidCredentials)
     }
 }
 
