@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE configs\n            SET ascending = $2\n            WHERE user_id = $1;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b5dcf98179d58d78de410fbf13f7f491b7628d925138db018141beceb7fa5e0"
+}

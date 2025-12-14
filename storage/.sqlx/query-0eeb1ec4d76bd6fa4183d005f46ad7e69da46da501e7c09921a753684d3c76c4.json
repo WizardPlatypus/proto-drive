@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE configs\n        SET edited_by = $2\n        WHERE user_id = $1;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0eeb1ec4d76bd6fa4183d005f46ad7e69da46da501e7c09921a753684d3c76c4"
+}

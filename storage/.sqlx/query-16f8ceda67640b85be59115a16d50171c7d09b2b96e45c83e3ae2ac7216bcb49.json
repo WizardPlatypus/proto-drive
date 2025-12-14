@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT user_id, sorted, ascending, created_at, edited_at, owned_by, edited_by, filtered\n        FROM configs\n        WHERE user_id = $1;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sorted",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "ascending",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "edited_at",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "owned_by",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "edited_by",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "filtered",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "16f8ceda67640b85be59115a16d50171c7d09b2b96e45c83e3ae2ac7216bcb49"
+}
