@@ -1,9 +1,8 @@
 -- Add migration script here
 CREATE TABLE files(
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    type TEXT,
-    path TEXT UNIQUE NOT NULL,
+    path TEXT UNIQUE,
     owned_by UUID NOT NULL,
     edited_by UUID,
     deleted_by UUID,
