@@ -73,6 +73,44 @@ pub async fn edit<'e, E: Executor<'e, Database = Postgres>>(
     Ok(())
 }
 
+pub async fn r#move<'e, E: Executor<'e, Database = Postgres>>(
+    e: E,
+    file_id: &Uuid,
+    path: &str,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+        UPDATE files
+        SET path = $1
+        WHERE id = $2;
+        "#,
+        path,
+        file_id,
+    )
+    .execute(e)
+    .await?;
+    Ok(())
+}
+
+pub async fn rename<'e, E: Executor<'e, Database = Postgres>>(
+    e: E,
+    file_id: &Uuid,
+    name: &str,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+        UPDATE files
+        SET name = $1
+        WHERE id = $2;
+        "#,
+        name,
+        file_id,
+    )
+    .execute(e)
+    .await?;
+    Ok(())
+}
+
 pub async fn find_by_id<'e, E: Executor<'e, Database = Postgres>>(
     e: E,
     file_id: &Uuid,

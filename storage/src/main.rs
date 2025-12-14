@@ -31,6 +31,8 @@ async fn main() {
     let app = Router::new()
         .route("/auth/register", post(api::register))
         .route("/auth/login", post(api::login))
+        .route("/upload", post(api::upload_file))
+        .route("/download/:file_id", post(api::download_file))
         .with_state(shared);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();
     tracing::debug!("Listening on {}", listener.local_addr().unwrap());
