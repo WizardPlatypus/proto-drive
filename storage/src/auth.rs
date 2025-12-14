@@ -1,7 +1,10 @@
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use password_hash::{PasswordHasher, SaltString, rand_core::OsRng};
 use sqlx::PgPool;
+use thiserror::Error;
 use uuid::Uuid;
+
+pub mod jwt;
 
 pub fn hash_password(password: &str) -> password_hash::Result<String> {
     let salt = SaltString::generate(&mut OsRng);
@@ -17,8 +20,6 @@ pub fn verify_password(password: &str, phc: &str) -> password_hash::Result<bool>
         .verify_password(password.as_bytes(), &hash)
         .is_ok())
 }
-
-use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -49,6 +50,11 @@ pub async fn login_user(pool: &PgPool, login: &str, password: &str) -> Result<Uu
     } else {
         Err(Error::InvalidCredentials)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct User {
+    pub id: Uuid,
 }
 
 #[cfg(test)]
