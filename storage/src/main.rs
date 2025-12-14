@@ -3,10 +3,7 @@ use std::time::Duration;
 use axum::{Router, routing::post};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-mod api;
-mod auth;
-mod db;
+use storage::api;
 
 #[tokio::main]
 async fn main() {
