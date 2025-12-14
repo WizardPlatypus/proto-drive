@@ -14,7 +14,7 @@ target
 **/mutants.out*/
 
 # Environment settings with potentially sensitive information
-.env
+.env*
 
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
