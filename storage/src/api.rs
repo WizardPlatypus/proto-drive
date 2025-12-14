@@ -70,6 +70,24 @@ pub struct Shared {
     pub jwt_secret: Arc<[u8]>,
 }
 
+impl Shared {
+    pub async fn from_env() -> Result<Shared, String> {
+        let db_connection_string = std::env::var("DATABASE_URL").map_err(|e| e.to_string())?;
+        let jwt_secret = Arc::from(
+            std::env::var("JWT_SECRET")
+                .map_err(|e| e.to_string())?
+                .as_bytes(),
+        );
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(5)
+            .acquire_timeout(std::time::Duration::from_secs(5))
+            .connect(&db_connection_string)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(Shared { pool, jwt_secret })
+    }
+}
+
 impl FromRequestParts<Shared> for auth::User {
     type Rejection = StatusCode;
 
