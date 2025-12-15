@@ -112,12 +112,6 @@ impl FromRequestParts<Shared> for auth::User {
     }
 }
 
-fn internal_server_error<E: ToString>(e: E) -> (StatusCode, String) {
-    let error = e.to_string();
-    tracing::error!(name: "internal_server_error", "{}", &error);
-    (StatusCode::INTERNAL_SERVER_ERROR, error)
-}
-
 fn sanitize_destination(input: &str) -> String {
     if !input.starts_with("/") {
         tracing::warn!("The path was not absolute");

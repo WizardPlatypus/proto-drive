@@ -73,14 +73,14 @@ async fn download_success(pool: PgPool) {
     tracing::debug!("root is {}", dir.path().to_string_lossy());
     let file_id = uuid!("7b798b53-5d49-404d-991f-ca92f74364e7");
     let user_id = uuid!("331194d0-3c87-42ed-aab0-bac0fc637063");
-    let path = shared.root.join("storage").join(user_id.to_string()).join(file_id.to_string());
+    let path = shared
+        .root
+        .join("storage")
+        .join(user_id.to_string())
+        .join(file_id.to_string());
     std::fs::create_dir_all(path.parent().unwrap())
         .expect("Failed to create the storage directory");
-    std::fs::write(
-        &path,
-        "Hello World!",
-    )
-    .expect("Failed to write to file");
+    std::fs::write(&path, "Hello World!").expect("Failed to write to file");
     tracing::debug!("Written to file: {}", &path.to_string_lossy());
     let app = storage::app(shared);
     let req = axum::http::Request::builder()
