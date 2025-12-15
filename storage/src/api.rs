@@ -3,7 +3,7 @@ use std::path::{Component, PathBuf};
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::extract::{Path, Query};
+use axum::extract::Query;
 use axum::response::{IntoResponse, Response};
 use axum::{
     Json,
@@ -28,6 +28,7 @@ pub type LoginRequest = Credentials;
 pub type RegisterRequest = Credentials;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthOk {
     pub access_token: String,
 }
@@ -302,7 +303,7 @@ pub struct ConfigUpdate {
 pub async fn put_config(
     State(shared): State<Shared>,
     user: auth::User,
-    Path(ConfigUpdate { field, value }): Path<ConfigUpdate>,
+    Json(ConfigUpdate { field, value }): Json<ConfigUpdate>,
 ) -> Result<StatusCode, Error> {
     match field.as_str() {
         "ascending" => {
@@ -352,6 +353,7 @@ pub enum Error {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ErrorResponse {
     message: String,
 }

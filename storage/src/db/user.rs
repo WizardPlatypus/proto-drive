@@ -3,6 +3,7 @@ use sqlx::{Executor, Postgres, Result};
 use uuid::Uuid;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: Uuid,
     pub login: String,
