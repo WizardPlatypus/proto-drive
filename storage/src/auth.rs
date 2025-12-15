@@ -1,8 +1,9 @@
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use password_hash::{PasswordHasher, SaltString, rand_core::OsRng};
 use sqlx::PgPool;
-use thiserror::Error;
 use uuid::Uuid;
+
+use crate::api;
 
 pub mod jwt;
 
@@ -21,18 +22,8 @@ pub fn verify_password(password: &str, phc: &str) -> password_hash::Result<bool>
         .is_ok())
 }
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("Invalid credentials")]
-    InvalidCredentials,
-    #[error("Password hashing error")]
-    PasswordHash(password_hash::Error),
-    #[error("Database error")]
-    Database(#[from] sqlx::Error),
-}
-
-pub async fn register_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, Error> {
-    let phc = hash_password(password).map_err(Error::PasswordHash)?;
+pub async fn register_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, api::Error> {
+    let phc = hash_password(password)?;
     let mut tx = pool.begin().await?;
     let user_id = crate::db::user::create(&mut *tx, login, &phc).await?;
     crate::db::config::init(&mut *tx, &user_id).await?;
@@ -40,15 +31,17 @@ pub async fn register_user(pool: &PgPool, login: &str, password: &str) -> Result
     Ok(user_id)
 }
 
-pub async fn login_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, Error> {
+pub async fn login_user(pool: &PgPool, login: &str, password: &str) -> Result<Uuid, api::Error> {
     let user = crate::db::user::find_by_login(pool, login)
         .await?
-        .ok_or(Error::InvalidCredentials)?;
-    let ok = verify_password(password, &user.phc).map_err(Error::PasswordHash)?;
+        .ok_or(api::Error::Unauthorized(String::from("Invalid login")))?;
+    let ok = verify_password(password, &user.phc)?;
     if ok {
         Ok(user.id)
     } else {
-        Err(Error::InvalidCredentials)
+        Err(api::Error::Unauthorized(String::from(
+            "Invalid credentials",
+        )))
     }
 }
 

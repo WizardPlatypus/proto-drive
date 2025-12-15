@@ -37,32 +37,18 @@ pub struct AuthOk {
 pub async fn register(
     State(shared): State<Shared>,
     Json(req): Json<RegisterRequest>,
-) -> Result<StatusCode, StatusCode> {
-    let _user_id = auth::register_user(&shared.pool, &req.login, &req.password)
-        .await
-        .map_err(map_auth_error)?;
+) -> Result<StatusCode, Error> {
+    let _user_id = auth::register_user(&shared.pool, &req.login, &req.password).await?;
     Ok(StatusCode::CREATED)
-}
-
-pub fn map_auth_error(e: auth::Error) -> StatusCode {
-    use auth::Error::*;
-    match e {
-        InvalidCredentials => StatusCode::UNAUTHORIZED,
-        PasswordHash(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
-    }
 }
 
 // POST /auth/login
 pub async fn login(
     State(shared): State<Shared>,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<AuthOk>, StatusCode> {
-    let user_id = auth::login_user(&shared.pool, &req.login, &req.password)
-        .await
-        .map_err(map_auth_error)?;
-    let token = auth::jwt::issue(user_id, &shared.jwt_secret, Duration::minutes(30))
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+) -> Result<Json<AuthOk>, Error> {
+    let user_id = auth::login_user(&shared.pool, &req.login, &req.password).await?;
+    let token = auth::jwt::issue(user_id, &shared.jwt_secret, Duration::minutes(30))?;
     Ok(Json(AuthOk {
         access_token: token,
     }))
@@ -336,6 +322,8 @@ pub async fn put_config(
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Password hashing error")]
+    PasswordHash(password_hash::Error),
     #[error("Environment error")]
     Environment(#[from] std::env::VarError),
     #[error("SQLx error")]
@@ -350,6 +338,16 @@ pub enum Error {
     NotFound(String),
     #[error("FORBIDDEN generic error")]
     Forbidden(String),
+    #[error("Invalid credentials")]
+    Unauthorized(String),
+    #[error("JWT error")]
+    JsonWebTokenError(#[from] jsonwebtoken::errors::Error),
+}
+
+impl From<password_hash::Error> for Error {
+    fn from(value: password_hash::Error) -> Self {
+        Self::PasswordHash(value)
+    }
 }
 
 #[derive(Serialize)]
@@ -370,13 +368,36 @@ impl IntoResponse for Error {
             }
             Error::Database(e) => {
                 tracing::error!(name: "database_error", "{}", e.to_string());
+                if let sqlx::Error::Database(db_err) = &e
+                    && db_err.code().as_deref() == Some("23505")
+                {
+                    (
+                        StatusCode::CONFLICT,
+                        String::from("A user with such login already exists."),
+                    )
+                } else {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        String::from("Something went wrong."),
+                    )
+                }
+            }
+            Error::InputOutput(e) => {
+                tracing::error!(name: "io_error", "{}", e.to_string());
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     String::from("Something went wrong."),
                 )
             }
-            Error::InputOutput(e) => {
-                tracing::error!(name: "io_error", "{}", e.to_string());
+            Error::PasswordHash(e) => {
+                tracing::error!(name: "hash_error", "{}", e.to_string());
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("Something went wrong."),
+                )
+            }
+            Error::JsonWebTokenError(e) => {
+                tracing::error!(name: "jwt_error", "{}", e.to_string());
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     String::from("Something went wrong."),
@@ -386,6 +407,7 @@ impl IntoResponse for Error {
             Error::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
             Error::NotFound(message) => (StatusCode::NOT_FOUND, message),
             Error::Forbidden(message) => (StatusCode::FORBIDDEN, message),
+            Error::Unauthorized(message) => (StatusCode::UNAUTHORIZED, message),
         };
 
         // Create the JSON response body
