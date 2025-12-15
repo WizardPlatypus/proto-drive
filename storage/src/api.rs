@@ -3,6 +3,7 @@ use std::path::{Component, PathBuf};
 use std::sync::Arc;
 
 use axum::body::Body;
+use axum::extract::Query;
 use axum::response::{IntoResponse, Response};
 use axum::{
     Json,
@@ -137,6 +138,7 @@ fn sanitize_destination(input: &str) -> String {
     }
 }
 
+// POST /upload
 pub async fn upload_file(
     State(shared): State<Shared>,
     user: auth::User,
@@ -214,6 +216,7 @@ pub async fn upload_file(
     Ok(StatusCode::CREATED)
 }
 
+// GET /download/{file_id}
 pub async fn download_file(
     State(shared): State<Shared>,
     user: auth::User,
@@ -241,6 +244,42 @@ pub async fn download_file(
     let stream = tokio_util::io::ReaderStream::new(file);
     let body = Body::from_stream(stream);
     Ok(body)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SearchQuery {
+    pub regex: String,
+    pub order_by: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+// GET /files/{query}
+pub async fn find_files(
+    State(shared): State<Shared>,
+    user: auth::User,
+    Query(SearchQuery {
+        regex,
+        order_by,
+        limit,
+        offset,
+    }): Query<SearchQuery>,
+) -> Result<Json<Vec<db::File>>, Error> {
+    if regex.trim().is_empty() {
+        return Err(Error::BadRequest(String::from(
+            "Search term may not be empty",
+        )));
+    }
+    let files = db::file::regex(
+        &shared.pool,
+        &regex,
+        &user.id,
+        &order_by.unwrap_or(String::from("name")),
+        limit.unwrap_or(100),
+        offset.unwrap_or(0),
+    )
+    .await?;
+    Ok(Json(files))
 }
 
 #[derive(Debug, Error)]
