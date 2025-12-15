@@ -1,9 +1,9 @@
 use std::io::Write;
-use std::path::Component;
+use std::path::{Component, PathBuf};
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::{
     Json,
     extract::{FromRequestParts, Multipart, State},
@@ -12,6 +12,7 @@ use axum::{
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use thiserror::Error;
 
 use crate::{auth, db};
 
@@ -68,25 +69,24 @@ pub async fn login(
 pub struct Shared {
     pub pool: PgPool,
     pub jwt_secret: Arc<[u8]>,
-    pub root: String
+    pub root: PathBuf,
 }
 
 impl Shared {
-    pub async fn from_env() -> Result<Shared, String> {
-        let db_connection_string = std::env::var("DATABASE_URL").map_err(|e| e.to_string())?;
-        let jwt_secret = Arc::from(
-            std::env::var("JWT_SECRET")
-                .map_err(|e| e.to_string())?
-                .as_bytes(),
-        );
-        let root = std::env::var("ROOT").map_err(|e| e.to_string())?;
+    pub async fn from_env() -> Result<Shared, Error> {
+        let db_connection_string = std::env::var("DATABASE_URL")?;
+        let jwt_secret = Arc::from(std::env::var("JWT_SECRET")?.as_bytes());
+        let root = std::path::PathBuf::from(&std::env::var("ROOT")?);
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(5)
             .acquire_timeout(std::time::Duration::from_secs(5))
             .connect(&db_connection_string)
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(Shared { pool, jwt_secret, root })
+            .await?;
+        Ok(Shared {
+            pool,
+            jwt_secret,
+            root,
+        })
     }
 }
 
@@ -147,86 +147,73 @@ pub async fn upload_file(
     State(shared): State<Shared>,
     user: auth::User,
     mut multipart: Multipart,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<StatusCode, Error> {
     let mut destination = None;
     let mut file = None;
-    let root = std::path::Path::new(&shared.root);
-    while let Some(mut field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
-    {
+    while let Some(mut field) = multipart.next_field().await? {
         match field.name() {
             Some("file") if field.file_name().is_some() => {
                 tracing::info!("Matched a \"file\" field");
                 let name = sanitize_filename::sanitize(field.file_name().unwrap());
                 if name.is_empty() {
                     tracing::error!(name: "filename_empty", "File name contained no characters once sanitized");
-                    return Err((
-                        StatusCode::BAD_REQUEST,
-                        String::from("File name contained no characters once sanitized"),
-                    ));
+                    return Err(Error::BadRequest(String::from(
+                        "File name contained no characters once sanitized",
+                    )));
                 }
                 tracing::debug!("Sanitized name: \"{}\"", &name);
-                let file_id = db::file::create(&shared.pool, &name, None, &user.id)
-                    .await
-                    .map_err(internal_server_error)?;
+                let file_id = db::file::create(&shared.pool, &name, None, &user.id).await?;
                 tracing::trace!("Acquired file UUID");
-                let temp_path = root.join("temp").join(&user.id.to_string()).join(&file_id.to_string());
-                // let temp_path = format!("{}/temp/{}/{}", &shared.root, &user.id, &file_id);
+                let temp_path = shared
+                    .root
+                    .join("temp")
+                    .join(user.id.to_string())
+                    .join(file_id.to_string());
                 tracing::debug!("Temp path: \"{}\"", &temp_path.to_string_lossy());
-                db::file::r#move(&shared.pool, &file_id, &temp_path.to_string_lossy())
-                    .await
-                    .map_err(internal_server_error)?;
+                db::file::r#move(&shared.pool, &file_id, &temp_path.to_string_lossy()).await?;
                 tracing::trace!("Updated DB path");
-                std::fs::create_dir_all(&temp_path.parent().unwrap()).map_err(internal_server_error)?;
+                std::fs::create_dir_all(temp_path.parent().unwrap())?;
                 tracing::trace!("Created intermediate directores");
-                let mut temp = std::fs::File::create(&temp_path).map_err(internal_server_error)?;
+                let mut temp = std::fs::File::create(&temp_path)?;
                 tracing::trace!("Opened the temp file");
-                while let Some(chunk) = field.chunk().await.map_err(internal_server_error)? {
-                    temp.write_all(&chunk).map_err(internal_server_error)?;
+                while let Some(chunk) = field.chunk().await? {
+                    temp.write_all(&chunk)?;
                 }
-                temp.sync_all().map_err(internal_server_error)?;
+                temp.sync_all()?;
                 tracing::trace!("Processed all chunks");
                 file = Some((name, file_id, temp_path));
             }
             Some("destination") => {
                 tracing::trace!("Matched a \"destination\" field");
-                destination = Some(sanitize_destination(
-                    &field.text().await.map_err(internal_server_error)?,
-                ));
+                destination = Some(sanitize_destination(&field.text().await?));
             }
             _ => {
                 tracing::trace!("Skipped a field");
             }
         }
     }
-    let destination = destination.ok_or((
-        StatusCode::BAD_REQUEST,
-        String::from("Multipart missing \"destination\" field."),
-    ))?;
-    let (name, file_id, temp_path) = file.ok_or((
-        StatusCode::BAD_REQUEST,
-        String::from("Multipart missing \"file\" field."),
-    ))?;
+    let destination = destination.ok_or(Error::BadRequest(String::from(
+        "Multipart missing \"destination\" field.",
+    )))?;
+    let (name, file_id, temp_path) = file.ok_or(Error::BadRequest(String::from(
+        "Multipart missing \"file\" field.",
+    )))?;
     let new_name = destination + &name;
     tracing::debug!("New name: {}", &new_name);
-    let new_path = root.join("storage").join(&user.id.to_string()).join(&file_id.to_string());
+    let new_path = shared
+        .root
+        .join("storage")
+        .join(user.id.to_string())
+        .join(file_id.to_string());
     // let new_path = format!("{}/storage/{}/{}", &shared.root, &user.id, &file_id);
     tracing::debug!("New path: {}", &new_path.to_string_lossy());
-    db::file::r#move(&shared.pool, &file_id, &new_path.to_string_lossy())
-        .await
-        .map_err(internal_server_error)?;
+    db::file::r#move(&shared.pool, &file_id, &new_path.to_string_lossy()).await?;
     tracing::info!("Moved DB file");
-    std::fs::create_dir_all(&new_path.parent().unwrap()).map_err(internal_server_error)?;
+    std::fs::create_dir_all(new_path.parent().unwrap())?;
     tracing::trace!("Created intermediate directores");
-    tokio::fs::rename(temp_path, &new_path)
-        .await
-        .map_err(internal_server_error)?;
+    tokio::fs::rename(temp_path, &new_path).await?;
     tracing::info!("Moved physical file");
-    db::file::rename(&shared.pool, &file_id, &new_name)
-        .await
-        .map_err(internal_server_error)?;
+    db::file::rename(&shared.pool, &file_id, &new_name).await?;
     tracing::info!("Renamed DB file");
     Ok(StatusCode::CREATED)
 }
@@ -262,4 +249,59 @@ pub async fn download_file(
     let stream = tokio_util::io::ReaderStream::new(file);
     let body = Body::from_stream(stream);
     Ok(body)
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Environment error")]
+    Environment(#[from] std::env::VarError),
+    #[error("SQLx error")]
+    Database(#[from] sqlx::error::Error),
+    #[error("Multipart protocol error")]
+    Multipart(#[from] axum::extract::multipart::MultipartError),
+    #[error("BAD_REQUEST generic error")]
+    BadRequest(String),
+    #[error("IO error")]
+    InputOutput(#[from] std::io::Error),
+}
+
+#[derive(Serialize)]
+struct ErrorResponse {
+    message: String,
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        let (status, message) = match self {
+            Error::Environment(e) => {
+                tracing::error!(name: "environment_error", "{}", e.to_string());
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("Something went wrong."),
+                )
+            }
+            Error::Database(e) => {
+                tracing::error!(name: "database_error", "{}", e.to_string());
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("Something went wrong."),
+                )
+            }
+            Error::InputOutput(e) => {
+                tracing::error!(name: "io_error", "{}", e.to_string());
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    String::from("Something went wrong."),
+                )
+            }
+            Error::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
+            Error::Multipart(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+        };
+
+        // Create the JSON response body
+        let body = Json(ErrorResponse { message });
+
+        // Build and return the final Axum Response
+        (status, body).into_response()
+    }
 }

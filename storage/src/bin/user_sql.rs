@@ -1,6 +1,6 @@
 use argon2::{
-    password_hash::{PasswordHasher, SaltString},
     Argon2,
+    password_hash::{PasswordHasher, SaltString},
 };
 use password_hash::rand_core::OsRng;
 use std::env;
