@@ -15,13 +15,13 @@ namespace ViewModels.Auth
     public partial class LoginViewModel : ViewModelBase
     {
         [ObservableProperty]
-        private string username;
+        private string username = "";
 
         [ObservableProperty]
-        private string password;
+        private string password = "";
 
-        public LoginViewModel(IApiService apiService, IDialogService dialogService, INavigationService navigationService)
-            : base(apiService, dialogService, navigationService) { }
+        public LoginViewModel(IApiService apiService, IDialogService dialogService, INavigationService navigatorService) : base(apiService, dialogService, navigatorService) { }
+        public LoginViewModel() : base(null!, null!, null!) { }
 
         [RelayCommand]
         private async Task Login()
@@ -44,6 +44,11 @@ namespace ViewModels.Auth
             {
                 _dialogService.ShowError($"An unexpected error occurred: {ex.Message}");
             }
+        }
+        [RelayCommand]
+        private void NavigateToRegister()
+        {
+            _navigationService.NavigateTo<RegisterViewModel>();
         }
     }
 }

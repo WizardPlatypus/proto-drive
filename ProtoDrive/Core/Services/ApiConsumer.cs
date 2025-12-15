@@ -9,11 +9,9 @@ namespace Core.Services
     public class ApiConsumer : IApiService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _baseUrl = "http://localhost:3001";
         public ApiConsumer(HttpClient httpClient)
         {
             _httpClient = httpClient;
-            _httpClient.BaseAddress = new Uri(_baseUrl);
         }
         private void SetAuthorizationHeader(string token)
         {
