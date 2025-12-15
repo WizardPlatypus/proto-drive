@@ -9,7 +9,7 @@ namespace Core.Domain.Entities
     public class Config
     {
         public required Guid UserId { get; set; }
-        public string? Sorted {  get; set; }
+        public string? Sorted { get; set; }
         public required bool Ascending { get; set; }
         public required bool CreatedAt { get; set; }
         public required bool EditedAt { get; set; }

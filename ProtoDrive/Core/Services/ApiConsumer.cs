@@ -103,5 +103,10 @@ namespace Core.Services
             var response = await _httpClient.PostAsync("upload", content);
             response.EnsureSuccessStatusCode();
         }
+
+        public void SetAccessToken(string accessToken)
+        {
+            SetAuthorizationHeader(accessToken);
+        }
     }
 }

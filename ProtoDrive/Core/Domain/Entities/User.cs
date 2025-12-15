@@ -10,6 +10,6 @@ namespace Core.Domain.Entities
     {
         public required Guid Id { get; set; }
         public required string Login { get; set; }
-        public required string Phc {  get; set; }
+        public required string Phc { get; set; }
     }
 }
