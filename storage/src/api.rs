@@ -3,7 +3,7 @@ use std::path::{Component, PathBuf};
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
 use axum::{
     Json,
@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use thiserror::Error;
 
+use crate::db::Config;
 use crate::{auth, db};
 
 #[derive(Deserialize)]
@@ -280,6 +281,56 @@ pub async fn find_files(
     )
     .await?;
     Ok(Json(files))
+}
+
+// GET /config
+pub async fn get_config(
+    State(shared): State<Shared>,
+    user: auth::User,
+) -> Result<Json<Config>, Error> {
+    let config = db::config::get(&shared.pool, &user.id).await?;
+    Ok(Json(config))
+}
+
+#[derive(Deserialize)]
+pub struct ConfigUpdate {
+    field: String,
+    value: bool,
+}
+
+// PUT /config
+pub async fn put_config(
+    State(shared): State<Shared>,
+    user: auth::User,
+    Path(ConfigUpdate { field, value }): Path<ConfigUpdate>,
+) -> Result<StatusCode, Error> {
+    match field.as_str() {
+        "ascending" => {
+            db::config::update_ascending(&shared.pool, &user.id, value).await?;
+        }
+        "created_at" => {
+            db::config::update_created_at(&shared.pool, &user.id, value).await?;
+        }
+        "owned_by" => {
+            db::config::update_owned_by(&shared.pool, &user.id, value).await?;
+        }
+        "edited_at" => {
+            db::config::update_edited_at(&shared.pool, &user.id, value).await?;
+        }
+        "edited_by" => {
+            db::config::update_edited_by(&shared.pool, &user.id, value).await?;
+        }
+        "filtered" => {
+            db::config::update_filtered(&shared.pool, &user.id, value).await?;
+        }
+        other => {
+            return Err(Error::BadRequest(format!(
+                "Unrecognized config option: {}",
+                other
+            )));
+        }
+    }
+    Ok(StatusCode::OK)
 }
 
 #[derive(Debug, Error)]

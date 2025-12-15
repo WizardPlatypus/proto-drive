@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use sqlx::{Executor, Postgres, Result};
 use uuid::Uuid;
 
+#[derive(Serialize)]
 pub struct File {
     pub id: Uuid,
     pub name: String,

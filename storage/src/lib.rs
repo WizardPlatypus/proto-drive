@@ -4,7 +4,7 @@ pub mod db;
 
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 
 use crate::api::Shared;
@@ -15,5 +15,8 @@ pub fn app(shared: Shared) -> Router {
         .route("/auth/login", post(api::login))
         .route("/upload", post(api::upload_file))
         .route("/download/{file_id}", get(api::download_file))
+        .route("/files", get(api::get_config))
+        .route("/config", get(api::get_config))
+        .route("/config", put(api::put_config))
         .with_state(shared)
 }

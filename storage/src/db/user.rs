@@ -1,6 +1,8 @@
+use serde::Serialize;
 use sqlx::{Executor, Postgres, Result};
 use uuid::Uuid;
 
+#[derive(Serialize)]
 pub struct User {
     pub id: Uuid,
     pub login: String,
