@@ -1,0 +1,2 @@
+INSERT INTO files (id, name, path, owned_by)
+VALUES ('7b798b53-5d49-404d-991f-ca92f74364e7'::UUID, 'hello_world.txt', 'storage/331194d0-3c87-42ed-aab0-bac0fc637063/7b798b53-5d49-404d-991f-ca92f74364e7', '331194d0-3c87-42ed-aab0-bac0fc637063'::UUID);

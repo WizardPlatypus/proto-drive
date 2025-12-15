@@ -1925,6 +1925,7 @@ dependencies = [
  "async-trait",
  "axum",
  "chrono",
+ "http-body-util",
  "jsonwebtoken",
  "once_cell",
  "password-hash",

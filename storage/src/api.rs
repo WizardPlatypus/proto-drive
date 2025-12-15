@@ -164,17 +164,16 @@ pub async fn upload_file(
                 tracing::debug!("Sanitized name: \"{}\"", &name);
                 let file_id = db::file::create(&shared.pool, &name, None, &user.id).await?;
                 tracing::trace!("Acquired file UUID");
-                let temp_path = shared
-                    .root
+                let temp_path = std::path::PathBuf::new()
                     .join("temp")
                     .join(user.id.to_string())
                     .join(file_id.to_string());
                 tracing::debug!("Temp path: \"{}\"", &temp_path.to_string_lossy());
                 db::file::r#move(&shared.pool, &file_id, &temp_path.to_string_lossy()).await?;
                 tracing::trace!("Updated DB path");
-                std::fs::create_dir_all(temp_path.parent().unwrap())?;
+                std::fs::create_dir_all(shared.root.join(&temp_path).parent().unwrap())?;
                 tracing::trace!("Created intermediate directores");
-                let mut temp = std::fs::File::create(&temp_path)?;
+                let mut temp = std::fs::File::create(shared.root.join(&temp_path))?;
                 tracing::trace!("Opened the temp file");
                 while let Some(chunk) = field.chunk().await? {
                     temp.write_all(&chunk)?;
@@ -200,21 +199,24 @@ pub async fn upload_file(
     )))?;
     let new_name = destination + &name;
     tracing::debug!("New name: {}", &new_name);
-    let new_path = shared
-        .root
+    db::file::rename(&shared.pool, &file_id, &new_name).await?;
+    tracing::info!("Renamed DB file");
+    let new_path = std::path::PathBuf::new()
         .join("storage")
         .join(user.id.to_string())
         .join(file_id.to_string());
-    // let new_path = format!("{}/storage/{}/{}", &shared.root, &user.id, &file_id);
     tracing::debug!("New path: {}", &new_path.to_string_lossy());
-    db::file::r#move(&shared.pool, &file_id, &new_path.to_string_lossy()).await?;
+    db::file::r#move(
+        &shared.pool,
+        &file_id,
+        &shared.root.join(&new_path).to_string_lossy(),
+    )
+    .await?;
     tracing::info!("Moved DB file");
-    std::fs::create_dir_all(new_path.parent().unwrap())?;
+    std::fs::create_dir_all(shared.root.join(&new_path).parent().unwrap())?;
     tracing::trace!("Created intermediate directores");
-    tokio::fs::rename(temp_path, &new_path).await?;
+    tokio::fs::rename(shared.root.join(temp_path), shared.root.join(new_path)).await?;
     tracing::info!("Moved physical file");
-    db::file::rename(&shared.pool, &file_id, &new_name).await?;
-    tracing::info!("Renamed DB file");
     Ok(StatusCode::CREATED)
 }
 
@@ -222,30 +224,26 @@ pub async fn download_file(
     State(shared): State<Shared>,
     user: auth::User,
     axum::extract::Path(file_id): axum::extract::Path<uuid::Uuid>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> Result<impl IntoResponse, Error> {
     let file = db::file::find_by_id(&shared.pool, &file_id)
-        .await
-        .map_err(internal_server_error)?
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            String::from("A file with that UUID does not exist"),
-        ))?;
+        .await?
+        .ok_or(Error::NotFound(String::from(
+            "A file with that UUID does not exist",
+        )))?;
+    tracing::trace!("Found the file");
     if file.owned_by != user.id {
-        return Err((
-            StatusCode::FORBIDDEN,
-            String::from("You do not have access to that file"),
-        ));
+        return Err(Error::Forbidden(String::from(
+            "You do not have access to that file",
+        )));
     }
     if file.path.is_none() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            String::from("Cannot download a folder"),
-        ));
+        return Err(Error::BadRequest(String::from("Cannot download a folder")));
     }
-    let path = file.path.unwrap();
-    let file = tokio::fs::File::open(&path)
-        .await
-        .map_err(internal_server_error)?;
+    tracing::trace!("File is not a folder");
+    let path = shared.root.join(file.path.unwrap());
+    tracing::debug!("Looking for file at {}", path.to_string_lossy());
+    let file = tokio::fs::File::open(&path).await?;
+    tracing::trace!("File opened");
     let stream = tokio_util::io::ReaderStream::new(file);
     let body = Body::from_stream(stream);
     Ok(body)
@@ -259,10 +257,14 @@ pub enum Error {
     Database(#[from] sqlx::error::Error),
     #[error("Multipart protocol error")]
     Multipart(#[from] axum::extract::multipart::MultipartError),
-    #[error("BAD_REQUEST generic error")]
-    BadRequest(String),
     #[error("IO error")]
     InputOutput(#[from] std::io::Error),
+    #[error("BAD_REQUEST generic error")]
+    BadRequest(String),
+    #[error("NOT_FOUND generic error")]
+    NotFound(String),
+    #[error("FORBIDDEN generic error")]
+    Forbidden(String),
 }
 
 #[derive(Serialize)]
@@ -294,8 +296,10 @@ impl IntoResponse for Error {
                     String::from("Something went wrong."),
                 )
             }
-            Error::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
             Error::Multipart(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            Error::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
+            Error::NotFound(message) => (StatusCode::NOT_FOUND, message),
+            Error::Forbidden(message) => (StatusCode::FORBIDDEN, message),
         };
 
         // Create the JSON response body
