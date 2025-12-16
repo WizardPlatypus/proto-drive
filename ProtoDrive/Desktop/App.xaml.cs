@@ -1,15 +1,15 @@
-﻿using Core.Interfaces;
-using Core.Services;
-using Desktop.Services;
+﻿using ProtoDrive.Core.Interfaces;
+using ProtoDrive.Core.Services;
+using ProtoDrive.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Configuration;
 using System.Data;
 using System.Windows;
-using ViewModels.Auth;
-using ViewModels.FileExplorer;
+using ProtoDrive.ViewModels.Auth;
+using ProtoDrive.ViewModels.FileExplorer;
 
-namespace Desktop
+namespace ProtoDrive.Desktop
 {
     public partial class App : Application
     {

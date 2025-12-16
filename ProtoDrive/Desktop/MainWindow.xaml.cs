@@ -1,5 +1,5 @@
-﻿using Core.Interfaces;
-using Desktop.Services;
+﻿using ProtoDrive.Core.Interfaces;
+using ProtoDrive.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 using System.Windows;
@@ -11,9 +11,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using ViewModels.Auth;
+using ProtoDrive.ViewModels.Auth;
 
-namespace Desktop
+namespace ProtoDrive.Desktop
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

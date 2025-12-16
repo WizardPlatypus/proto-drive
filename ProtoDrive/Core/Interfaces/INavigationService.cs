@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Core.Interfaces
+namespace ProtoDrive.Core.Interfaces
 {
     public interface INavigationService
     {
@@ -23,6 +23,6 @@ namespace Core.Interfaces
         /// <summary>
         /// Event that the View (e.g., MainWindow) subscribes to, triggering the actual UI change.
         /// </summary>
-        event Action<Type, object> NavigationRequested;
+        event Action<Type, object>? NavigationRequested;
     }
 }

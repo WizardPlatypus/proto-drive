@@ -1,19 +1,19 @@
-﻿using Core.Interfaces;
+﻿using ProtoDrive.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ViewModels.Auth;
-using ViewModels.FileExplorer;
+using ProtoDrive.ViewModels.Auth;
+using ProtoDrive.ViewModels.FileExplorer;
 
-namespace Desktop.Services
+namespace ProtoDrive.Desktop.Services
 {
     class WpfNavigationService : INavigationService
     {
         private readonly Dictionary<Type, Type> _mapping = new();
         private readonly IServiceProvider _serviceProvider;
-        public event Action<Type, object> NavigationRequested;
+        public event Action<Type, object>? NavigationRequested;
 
         public WpfNavigationService(IServiceProvider serviceProvider)
         {
@@ -36,7 +36,7 @@ namespace Desktop.Services
 
         public void NavigateTo<TViewModel>(object? parameter) where TViewModel : class, IViewModel
         {
-            NavigationRequested?.Invoke(typeof(TViewModel), parameter);
+            NavigationRequested?.Invoke(typeof(TViewModel), parameter!);
             throw new NotImplementedException();
         }
 

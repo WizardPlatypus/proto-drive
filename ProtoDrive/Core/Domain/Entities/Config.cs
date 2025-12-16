@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Core.Domain.Entities
+namespace ProtoDrive.Core.Domain.Entities
 {
     public class Config
     {

@@ -1,15 +1,15 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.Interfaces;
+using ProtoDrive.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ViewModels.Base;
-using ViewModels.FileExplorer;
+using ProtoDrive.ViewModels.Base;
+using ProtoDrive.ViewModels.FileExplorer;
 
-namespace ViewModels.Auth
+namespace ProtoDrive.ViewModels.Auth
 {
     public partial class LoginViewModel : ViewModelBase, IInitializable
     {

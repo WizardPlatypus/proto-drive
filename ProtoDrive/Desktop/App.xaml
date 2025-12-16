@@ -1,9 +1,13 @@
-﻿<Application x:Class="Desktop.App"
+﻿<Application x:Class="ProtoDrive.Desktop.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Desktop"
+             xmlns:local="clr-namespace:ProtoDrive.Desktop"
+             xmlns:conv="clr-namespace:ProtoDrive.Desktop.Converters"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <ResourceDictionary>
+            <conv:BooleanToStatusTextConverter x:Key="BooleanToStatusTextConverter"/>
+            <conv:ItemTypeToItemConverter x:Key="ItemTypeToIconConverter"/>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,12 +1,87 @@
-﻿<UserControl x:Class="Desktop.Views.FileExplorerPage"
+﻿<UserControl x:Class="ProtoDrive.Desktop.Views.FileExplorerPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:Desktop.Views"
+             xmlns:vm="clr-namespace:ProtoDrive.ViewModels.FileExplorer;assembly=ProtoDrive.ViewModels"
+             xmlns:local="clr-namespace:ProtoDrive.Desktop.Views"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="800"
+             Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+
+    <d:DesignData.DataContext>
+        <vm:FileExplorerViewModel/>
+    </d:DesignData.DataContext>
+
     <Grid>
-            
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Padding="15" BorderThickness="0,0,0,1" BorderBrush="#CCCCCC">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ProtoDrive/" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14"/>
+                <TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" 
+                         Width="300" 
+                         Margin="20,0,0,0" 
+                         Padding="5"/>
+                <Button Content="Open" Command="{Binding OpenFolderCommand}" Margin="10,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <ListView Grid.Row="1" 
+                   ItemsSource="{Binding CurrentFolderContents}" 
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   Margin="15,0">
+
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ListViewItem}">
+                                <Border Background="{TemplateBinding Background}" 
+                                         BorderBrush="{TemplateBinding BorderBrush}" 
+                                         BorderThickness="{TemplateBinding BorderThickness}">
+                                    <ContentPresenter/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+
+            <ListView.View>
+                <GridView>
+
+                    <GridViewColumn Header="Name" Width="300">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate DataType="{x:Type vm:FileViewModel}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="{Binding IsFolder, Converter={StaticResource ItemTypeToIconConverter}}" 
+                                              Width="16" Height="16" Margin="0,0,5,0"/>
+                                    <TextBlock Text="{Binding Name}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <GridViewColumn Header="Created" Width="100" DisplayMemberBinding="{Binding Created, StringFormat={}}"/>
+                    <GridViewColumn Header="Owner" Width="100" DisplayMemberBinding="{Binding Owner, StringFormat={}}"/>
+                    <GridViewColumn Header="Modified" Width="100" DisplayMemberBinding="{Binding LastModified, StringFormat={}}"/>
+                    <GridViewColumn Header="Editor" Width="100" DisplayMemberBinding="{Binding Editor, StringFormat={}}"/>
+
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock Text="{Binding IsBusy, Converter={StaticResource BooleanToStatusTextConverter}}" />
+            </StatusBarItem>
+        </StatusBar>
+
     </Grid>
 </UserControl>

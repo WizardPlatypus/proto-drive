@@ -1,10 +1,10 @@
-﻿using Core.Interfaces;
-using Core.Domain.Entities;
+﻿using ProtoDrive.Core.Interfaces;
+using ProtoDrive.Core.Domain.Entities;
 using System.Net.Http.Json;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 
-namespace Core.Services
+namespace ProtoDrive.Core.Services
 {
     public class ApiConsumer : IApiService
     {
@@ -28,17 +28,28 @@ namespace Core.Services
         {
             var response = await _httpClient.GetAsync("config");
             response.EnsureSuccessStatusCode();
-            var config = await response.Content.ReadFromJsonAsync<Config>();
-            if (config != null)
-            {
-                throw new InvalidOperationException("Failed to retrieve config from a successful response");
-            }
+            var config = await response.Content.ReadFromJsonAsync<Config>() ?? throw new InvalidOperationException("Failed to retrieve config from a successful response");
             return config;
         }
 
-        public Task<List<Domain.Entities.File>> GetFolderContentsAsync(Guid fileId)
+        public async Task<List<Domain.Entities.File>> GetFolderContentsAsync(Guid fileId)
         {
-            throw new NotImplementedException();
+            var response = await _httpClient.GetAsync($"folder/{fileId}");
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                throw new InvalidOperationException("No such folder");
+            }
+            response.EnsureSuccessStatusCode();
+            var files = await response.Content.ReadFromJsonAsync<List<Domain.Entities.File>>() ?? throw new InvalidOperationException("Failed to retrieve files from a successful response");
+            return files;
+        }
+
+        public async Task<List<Domain.Entities.File>> GetFolderContentsAsync(string name)
+        {
+            var response = await _httpClient.GetAsync($"folder?name={name}");
+            response.EnsureSuccessStatusCode();
+            var files = await response.Content.ReadFromJsonAsync<List<Domain.Entities.File>>() ?? throw new InvalidOperationException("Failed to retrieve files from a successful response");
+            return files;
         }
 
         public async Task<string> LoginAsync(string login, string password)
