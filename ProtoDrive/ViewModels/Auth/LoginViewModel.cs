@@ -32,7 +32,7 @@ namespace ProtoDrive.ViewModels.Auth
             }
             try
             {
-                string _token = await _apiService.LoginAsync(Username, Password);
+                string token = await _apiService.LoginAsync(Username, Password);
                 _navigationService.NavigateTo<FileExplorerViewModel>();
             }
             catch (UnauthorizedAccessException)
@@ -52,14 +52,12 @@ namespace ProtoDrive.ViewModels.Auth
 
         public Task InitializeAsync(object? parameter = null)
         {
-            return Task.Run(() =>
+            if (parameter != null && parameter is (String l, String p))
             {
-                if (parameter != null && parameter is (String l, String p))
-                {
-                    Username = l;
-                    Password = p;
-                }
-            });
+                Username = l;
+                Password = p;
+            }
+            return Task.CompletedTask;
         }
     }
 }

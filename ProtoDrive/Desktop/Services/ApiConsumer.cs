@@ -3,78 +3,87 @@ using ProtoDrive.Core.Domain.Entities;
 using System.Net.Http.Json;
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Data.Common;
+using System.IO;
+using System.Net.Http;
 
-namespace ProtoDrive.Core.Services
+namespace ProtoDrive.Desktop.Services
 {
     public class ApiConsumer : IApiService
     {
-        private readonly HttpClient _httpClient;
-        public ApiConsumer(HttpClient httpClient)
+        private readonly HttpClient _apiClient;
+        private readonly JsonSerializerOptions _options;
+        private readonly ITokenStore _tokenStore;
+        public ApiConsumer(HttpClient httpClient, JsonSerializerOptions options, ITokenStore tokenStore)
         {
-            _httpClient = httpClient;
+            _apiClient = httpClient;
+            _options = options;
+            _tokenStore = tokenStore;
         }
-        private void SetAuthorizationHeader(string token)
+        private record AuthOk
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            public required string AccessToken { get; set; }
         }
-        private record AuthResponse(string access_token);
-        public Task<Stream> DownloadFileAsync(Guid fileId)
+        Task<Stream> IApiService.DownloadFileAsync(Guid fileId)
         {
             throw new NotImplementedException();
         }
 
-        public async Task<Config> GetConfigAsync()
+        async Task<Config> IApiService.GetConfigAsync()
         {
-            var response = await _httpClient.GetAsync("config");
+            var response = await _apiClient.GetAsync("config");
             response.EnsureSuccessStatusCode();
-            var config = await response.Content.ReadFromJsonAsync<Config>() ?? throw new InvalidOperationException("Failed to retrieve config from a successful response");
+            var config = await response.Content.ReadFromJsonAsync<Config>(_options) ?? throw new InvalidOperationException("Failed to retrieve config from a successful response");
             return config;
         }
 
-        public async Task<List<Domain.Entities.File>> GetFolderContentsAsync(Guid fileId)
+        async Task<List<Core.Domain.Entities.File>> IApiService.GetFolderContentsAsync(Guid fileId)
         {
-            var response = await _httpClient.GetAsync($"folder/{fileId}");
+            var response = await _apiClient.GetAsync($"folder/{fileId}");
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 throw new InvalidOperationException("No such folder");
             }
             response.EnsureSuccessStatusCode();
-            var files = await response.Content.ReadFromJsonAsync<List<Domain.Entities.File>>() ?? throw new InvalidOperationException("Failed to retrieve files from a successful response");
+            var files = await response.Content.ReadFromJsonAsync<List<Core.Domain.Entities.File>>(_options) ?? throw new InvalidOperationException("Failed to retrieve files from a successful response");
             return files;
         }
 
-        public async Task<List<Domain.Entities.File>> GetFolderContentsAsync(string name)
+        async Task<List<Core.Domain.Entities.File>> IApiService.GetFolderContentsAsync(string name)
         {
-            var response = await _httpClient.GetAsync($"folder?name={name}");
+            var response = await _apiClient.GetAsync($"folder?name={name}");
             response.EnsureSuccessStatusCode();
-            var files = await response.Content.ReadFromJsonAsync<List<Domain.Entities.File>>() ?? throw new InvalidOperationException("Failed to retrieve files from a successful response");
+            var files = await response.Content.ReadFromJsonAsync<List<Core.Domain.Entities.File>>(_options) ?? throw new InvalidOperationException("Failed to retrieve files from a successful response");
             return files;
         }
 
-        public async Task<string> LoginAsync(string login, string password)
+        async Task<string> IApiService.LoginAsync(string login, string password)
         {
             var loginRequest = new { login, password };
-            var response = await _httpClient.PostAsJsonAsync("auth/login", loginRequest);
+            var response = await _apiClient.PostAsJsonAsync("auth/login", loginRequest, _options);
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
                 response.StatusCode == System.Net.HttpStatusCode.BadRequest)
             {
                 throw new UnauthorizedAccessException("Login failed. Check credentials.");
             }
             response.EnsureSuccessStatusCode();
-            var authResult = await response.Content.ReadFromJsonAsync<AuthResponse>();
-            if (authResult?.access_token == null)
+            var authResult = await response.Content.ReadFromJsonAsync<AuthOk>(_options);
+            string? token = authResult?.AccessToken;
+            if (token == null)
             {
                 throw new InvalidOperationException("Login endpoint returned an invalid token structure");
             }
-            SetAuthorizationHeader(authResult.access_token);
-            return authResult.access_token;
+            _tokenStore.AccessToken = token;
+            _apiClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            return token!;
         }
 
-        public async Task RegisterAsync(string login, string password)
+        async Task IApiService.RegisterAsync(string login, string password)
         {
             var registerRequest = new { login, password };
-            var response = await _httpClient.PostAsJsonAsync("auth/register", registerRequest);
+            var response = await _apiClient.PostAsJsonAsync("auth/register", registerRequest, _options);
             if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
                 var message = await response.Content.ReadAsStringAsync();
@@ -89,7 +98,7 @@ namespace ProtoDrive.Core.Services
             public required bool value;
         }
 
-        public async Task UpdateConfigAsync(Fields field, bool value)
+        async Task IApiService.UpdateConfigAsync(Fields field, bool value)
         {
             string s = field switch
             {
@@ -102,11 +111,11 @@ namespace ProtoDrive.Core.Services
                 _ => throw new UnreachableException()
             };
             var request = new ConfigUpdate { field = s, value = value };
-            var response = await _httpClient.PutAsJsonAsync("config", request);
+            var response = await _apiClient.PutAsJsonAsync("config", request, _options);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task UploadFileAsync(Stream file, string name, string destination)
+        async Task IApiService.UploadFileAsync(Stream file, string name, string destination)
         {
             using var content = new MultipartFormDataContent();
             var streamContent = new StreamContent(file);
@@ -114,13 +123,8 @@ namespace ProtoDrive.Core.Services
             content.Add(streamContent, name: "file", fileName: name);
             content.Add(new StringContent(destination), name: "destination");
             content.Add(new StringContent(name), name: "file_name");
-            var response = await _httpClient.PostAsync("upload", content);
+            var response = await _apiClient.PostAsync("upload", content);
             response.EnsureSuccessStatusCode();
-        }
-
-        public void SetAccessToken(string accessToken)
-        {
-            SetAuthorizationHeader(accessToken);
         }
     }
 }

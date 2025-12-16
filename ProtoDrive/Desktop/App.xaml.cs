@@ -8,6 +8,7 @@ using System.Data;
 using System.Windows;
 using ProtoDrive.ViewModels.Auth;
 using ProtoDrive.ViewModels.FileExplorer;
+using System.Text.Json;
 
 namespace ProtoDrive.Desktop
 {
@@ -29,10 +30,20 @@ namespace ProtoDrive.Desktop
 
         private void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton<ITokenStore, TokenStore>();
+            services.AddTransient<AuthHeaderHandler>();
+            services.AddSingleton(new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true,
+                WriteIndented = true,
+            });
+            services.AddHttpClient(); // this one for IHttpClientFactory
             services.AddHttpClient<IApiService, ApiConsumer>(client =>
             {
                 client.BaseAddress = new Uri("http://localhost:3001/");
-            });
+            })
+                .AddHttpMessageHandler<AuthHeaderHandler>();
             services.AddSingleton<IDialogService, WpfDialogService>();
             services.AddSingleton<INavigationService, WpfNavigationService>();
         }

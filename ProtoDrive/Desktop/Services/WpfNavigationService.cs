@@ -37,7 +37,6 @@ namespace ProtoDrive.Desktop.Services
         public void NavigateTo<TViewModel>(object? parameter) where TViewModel : class, IViewModel
         {
             NavigationRequested?.Invoke(typeof(TViewModel), parameter!);
-            throw new NotImplementedException();
         }
 
         public Type GetViewTypeForViewModel(Type viewModelType)
