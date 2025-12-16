@@ -30,16 +30,22 @@ namespace Desktop
             _navigationService.NavigationRequested += OnNavigationRequested;
             _navigationService.NavigateTo<LoginViewModel>();
         }
-        private void OnNavigationRequested(Type viewModelType, object? parameter)
+        private async void OnNavigationRequested(Type viewModelType, object? parameter)
         {
             Type viewType = _navigationService.GetViewTypeForViewModel(viewModelType);
             var viewModelInstance = _serviceProvider.GetRequiredService(viewModelType);
             var viewInstance = (FrameworkElement)_serviceProvider.GetRequiredService(viewType);
-            // 4. Handle parameter (if you use IInitializable on your ViewModel)
-            //if (parameter != null && viewModelInstance is IInitializable initVm)
-            //{
-            //    initVm.Initialize(parameter);
-            //}
+            if (viewModelInstance is IInitializable initVm)
+            {
+                try
+                {
+                    await initVm.InitializeAsync(parameter);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to initialize view: {ex.Message}", "Initialization Error");
+                }
+            }
             viewInstance.DataContext = viewModelInstance;
             NavigationFrame.Content = viewInstance;
         }
