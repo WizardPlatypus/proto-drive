@@ -49,7 +49,12 @@ pub async fn login(
 ) -> Result<Json<AuthOk>, Error> {
     let user_id = auth::login_user(&shared.pool, &req.login, &req.password).await?;
     let token = auth::jwt::issue(user_id, &shared.jwt_secret, Duration::minutes(30))?;
-    tracing::debug!("Response: {}", serde_json::json!(AuthOk { access_token: token.clone() }));
+    tracing::debug!(
+        "Response: {}",
+        serde_json::json!(AuthOk {
+            access_token: token.clone()
+        })
+    );
     Ok(Json(AuthOk {
         access_token: token,
     }))
