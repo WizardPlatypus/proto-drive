@@ -236,38 +236,43 @@ pub async fn download_file(
 
 #[derive(Debug, Deserialize)]
 pub struct SearchQuery {
-    pub regex: String,
-    pub order_by: Option<String>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
+    pub name: String,
 }
 
-// GET /files/{query}
+// GET /folder/{query}
 pub async fn find_files(
     State(shared): State<Shared>,
     user: auth::User,
-    Query(SearchQuery {
-        regex,
-        order_by,
-        limit,
-        offset,
-    }): Query<SearchQuery>,
+    Query(SearchQuery { name }): Query<SearchQuery>,
 ) -> Result<Json<Vec<db::File>>, Error> {
-    if regex.trim().is_empty() {
-        return Err(Error::BadRequest(String::from(
-            "Search term may not be empty",
-        )));
+    let name = name.trim();
+    if name.is_empty() {
+        let files = db::file::root(&shared.pool, &user.id).await?;
+        Ok(Json(files))
+    } else {
+        let files = db::file::folder(&shared.pool, &user.id, name).await?;
+        Ok(Json(files))
     }
-    let files = db::file::regex(
-        &shared.pool,
-        &regex,
-        &user.id,
-        &order_by.unwrap_or(String::from("name")),
-        limit.unwrap_or(100),
-        offset.unwrap_or(0),
-    )
-    .await?;
-    Ok(Json(files))
+}
+
+// GET /folder/{file_id}
+pub async fn get_folder(
+    State(shared): State<Shared>,
+    user: auth::User,
+    axum::extract::Path(file_id): axum::extract::Path<uuid::Uuid>,
+) -> Result<Json<Vec<db::File>>, Error> {
+    if file_id.is_nil() {
+        let files = db::file::root(&shared.pool, &user.id).await?;
+        Ok(Json(files))
+    } else {
+        let mut tx = shared.pool.begin().await?;
+        let file = db::file::find_by_id(&mut *tx, &file_id)
+            .await?
+            .ok_or(Error::NotFound(String::from("No file with such UUID")))?;
+        let files = db::file::folder(&mut *tx, &user.id, &file.name).await?;
+        tx.commit().await?;
+        Ok(Json(files))
+    }
 }
 
 // GET /config

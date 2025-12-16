@@ -158,3 +158,40 @@ pub async fn regex<'e, E: Executor<'e, Database = Postgres>>(
     .fetch_all(e)
     .await
 }
+
+pub async fn folder<'e, E: Executor<'e, Database = Postgres>>(
+    e: E,
+    owner_id: &Uuid,
+    name: &str,
+) -> Result<Vec<File>> {
+    let pattern = format!("'{}{}'", name.replace("/", r"\/"), r"\/(\w|\.)+");
+    sqlx::query_as!(
+        File,
+        r#"
+        SELECT id, name, path, owned_by, edited_by, created_at, edited_at
+        FROM files
+        WHERE owned_by = $1 AND name ~ $2 AND deleted_by = NULL AND deleted_at = NULL;
+        "#,
+        owner_id,
+        &pattern
+    )
+    .fetch_all(e)
+    .await
+}
+
+pub async fn root<'e, E: Executor<'e, Database = Postgres>>(
+    e: E,
+    owner_id: &Uuid,
+) -> Result<Vec<File>> {
+    sqlx::query_as!(
+        File,
+        r#"
+        SELECT id, name, path, owned_by, edited_by, created_at, edited_at
+        FROM files
+        WHERE owned_by = $1 AND name ~ '(\w|\.)+' AND deleted_by = NULL AND deleted_at = NULL;
+        "#,
+        owner_id
+    )
+    .fetch_all(e)
+    .await
+}
