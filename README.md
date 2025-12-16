@@ -24,7 +24,7 @@ The following requirements are fully implemented and available via the core REST
 
 The architecture was strategically designed to decouple the high-performance data service from the presentation layers, ensuring flexibility and maintainability.
 
-![Archtiecture Diagram](Architecture.png)
+![Architecture Diagram](./Architecture.png)
 
 > Here, green coloration denotes a well-developed component of the architecture, yellow denotes a project that's in development, and red marks unimplemented but planned components.
 
@@ -135,5 +135,7 @@ Designed for platform-specific rendering, utilizing the completed Shared Logic L
 
 
 ✔️ - feature is implemented
+
 ❌ - feature is unimplemented
+
 ⚠️ - feature is unnecessary on that layer
