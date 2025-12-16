@@ -7,12 +7,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ViewModels.Base;
-using CommunityToolkit.Mvvm.Input;
 using ViewModels.FileExplorer;
 
 namespace ViewModels.Auth
 {
-    public partial class LoginViewModel : ViewModelBase
+    public partial class LoginViewModel : ViewModelBase, IInitializable
     {
         [ObservableProperty]
         private string username = "";
@@ -49,6 +48,18 @@ namespace ViewModels.Auth
         private void NavigateToRegister()
         {
             _navigationService.NavigateTo<RegisterViewModel>();
+        }
+
+        public Task InitializeAsync(object? parameter = null)
+        {
+            return Task.Run(() =>
+            {
+                if (parameter != null && parameter is (String l, String p))
+                {
+                    Username = l;
+                    Password = p;
+                }
+            });
         }
     }
 }

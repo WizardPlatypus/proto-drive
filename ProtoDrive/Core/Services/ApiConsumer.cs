@@ -64,6 +64,11 @@ namespace Core.Services
         {
             var registerRequest = new { login, password };
             var response = await _httpClient.PostAsJsonAsync("auth/register", registerRequest);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                var message = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException(message);
+            }
             response.EnsureSuccessStatusCode();
         }
 
